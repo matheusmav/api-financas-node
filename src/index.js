@@ -1,5 +1,5 @@
 const express = require("express");
-const { v4: uuidv4 } = require("uuid");
+const { v4: uuid_v4 } = require("uuid");
 
 const app = express();
 
@@ -26,7 +26,7 @@ app.post("/account", (request, response) => {
     costumers.push({
         cpf,
         name,
-        id: uuidv4(),
+        id: uuid_v4(),
         statement: [],
     });
 
