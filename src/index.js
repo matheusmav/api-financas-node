@@ -7,6 +7,9 @@ app.use(express.json());
 
 const costumers = [];
 
+/**
+ * Create Costumer
+ */
 app.post("/account", (request, response) => {
     const { cpf, name } = request.body;
 
@@ -30,8 +33,11 @@ app.post("/account", (request, response) => {
     return response.status(201).send();
 });
 
-app.get("/statement/:cpf", (request, response) => {
-    const { cpf } = request.params;
+/**
+ * Get Statement Costumer
+ */
+app.get("/statement", (request, response) => {
+    const { cpf } = request.headers;
 
     const costumer = costumers.find((costumer) => costumer.cpf === cpf);
 
