@@ -5,21 +5,21 @@ const app = express();
 
 app.use(express.json());
 
-const costumers = [];
+const customers = [];
 
 // Middleware
 function verifyExistsAccountCPF(request, response, next) {
     const { cpf } = request.headers;
 
-    const costumer = costumers.find((costumer) => costumer.cpf === cpf);
+    const customer = customers.find((customer) => customer.cpf === cpf);
 
-    if (!costumer) {
+    if (!customer) {
         return response.status(400).json({
-            error: "Costumer not found!",
+            error: "customer not found!",
         });
     }
 
-    request.costumer = costumer;
+    request.customer = customer;
 
     return next();
 }
@@ -37,22 +37,22 @@ function getBalance(statement) {
 }
 
 /**
- * Create Costumer
+ * Create customer
  */
 app.post("/account", (request, response) => {
     const { cpf, name } = request.body;
 
-    const costumerAlreadyExists = costumers.some(
-        (costumer) => costumer.cpf === cpf
+    const customerAlreadyExists = customers.some(
+        (customer) => customer.cpf === cpf
     );
 
-    if (costumerAlreadyExists) {
+    if (customerAlreadyExists) {
         return response.status(400).json({
-            error: "Costumer already exists!",
+            error: "customer already exists!",
         });
     }
 
-    costumers.push({
+    customers.push({
         cpf,
         name,
         id: uuid_v4(),
@@ -66,8 +66,8 @@ app.post("/account", (request, response) => {
  * Get Statement
  */
 app.get("/statement", verifyExistsAccountCPF, (request, response) => {
-    const { costumer } = request;
-    return response.json(costumer.statement);
+    const { customer } = request;
+    return response.json(customer.statement);
 });
 
 /**
@@ -75,7 +75,7 @@ app.get("/statement", verifyExistsAccountCPF, (request, response) => {
  */
 app.post("/deposit", verifyExistsAccountCPF, (request, response) => {
     const { description, amount } = request.body;
-    const { costumer } = request;
+    const { customer } = request;
 
     const statementOperation = {
         description,
@@ -84,7 +84,7 @@ app.post("/deposit", verifyExistsAccountCPF, (request, response) => {
         type: "credit",
     };
 
-    costumer.statement.push(statementOperation);
+    customer.statement.push(statementOperation);
 
     return response.status(201).send();
 });
@@ -94,9 +94,9 @@ app.post("/deposit", verifyExistsAccountCPF, (request, response) => {
  */
 app.post("/with-draw", verifyExistsAccountCPF, (request, response) => {
     const { description, amount } = request.body;
-    const { costumer } = request;
+    const { customer } = request;
 
-    const balance = getBalance(costumer.statement);
+    const balance = getBalance(customer.statement);
 
     if (balance < amount) {
         return response.status(400).json({
@@ -111,9 +111,74 @@ app.post("/with-draw", verifyExistsAccountCPF, (request, response) => {
         type: "debit",
     };
 
-    costumer.statement.push(statementOperation);
+    customer.statement.push(statementOperation);
 
     return response.status(201).send();
+});
+
+/**
+ * Statements per date
+ */
+app.get("/statement/date", verifyExistsAccountCPF, (request, response) => {
+    const { customer } = request;
+    const { date } = request.query;
+
+    const dateFormat = new Date(date + " 00:00:00");
+
+    const statement = customer.statement.filter(
+        (statement) =>
+            statement.created_at.toDateString() === dateFormat.toDateString()
+    );
+
+    return response.json(statement);
+});
+
+/**
+ * Update Account
+ */
+app.put("/account", verifyExistsAccountCPF, (request, response) => {
+    const { name } = request.body;
+    const { customer } = request;
+
+    customer.name = name;
+
+    return response.status(201).send();
+});
+
+/**
+ * Get Account
+ */
+app.get("/account", verifyExistsAccountCPF, (request, response) => {
+    const { customer } = request;
+
+    return response.json(customer);
+});
+
+/**
+ * Delete Account
+ */
+app.delete("/account", verifyExistsAccountCPF, (request, response) => {
+    const { customer } = request;
+    const { cpf } = customer;
+
+    const customerIndex = customers.findIndex(
+        (customer) => customer.cpf === cpf
+    );
+
+    customers.splice(customerIndex, 1);
+
+    return response.status(200).json(customers);
+});
+
+/**
+ * Get Balance
+ */
+app.get("/balance", verifyExistsAccountCPF, (request, response) => {
+    const { customer } = request;
+
+    const balance = getBalance(customer.statement);
+
+    return response.json(balance);
 });
 
 app.listen(3333);
