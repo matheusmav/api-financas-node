@@ -7,6 +7,35 @@ app.use(express.json());
 
 const costumers = [];
 
+// Middleware
+function verifyExistsAccountCPF(request, response, next) {
+    const { cpf } = request.headers;
+
+    const costumer = costumers.find((costumer) => costumer.cpf === cpf);
+
+    if (!costumer) {
+        return response.status(400).json({
+            error: "Costumer not found!",
+        });
+    }
+
+    request.costumer = costumer;
+
+    return next();
+}
+
+function getBalance(statement) {
+    const balance = statement.reduce((acc, operation) => {
+        if (operation.type === "credit") {
+            return acc + operation.amount;
+        } else {
+            return acc - operation.amount;
+        }
+    }, 0);
+
+    return balance;
+}
+
 /**
  * Create Costumer
  */
@@ -34,20 +63,57 @@ app.post("/account", (request, response) => {
 });
 
 /**
- * Get Statement Costumer
+ * Get Statement
  */
-app.get("/statement", (request, response) => {
-    const { cpf } = request.headers;
+app.get("/statement", verifyExistsAccountCPF, (request, response) => {
+    const { costumer } = request;
+    return response.json(costumer.statement);
+});
 
-    const costumer = costumers.find((costumer) => costumer.cpf === cpf);
+/**
+ * Deposit
+ */
+app.post("/deposit", verifyExistsAccountCPF, (request, response) => {
+    const { description, amount } = request.body;
+    const { costumer } = request;
 
-    if (!costumer) {
+    const statementOperation = {
+        description,
+        amount,
+        created_at: new Date(),
+        type: "credit",
+    };
+
+    costumer.statement.push(statementOperation);
+
+    return response.status(201).send();
+});
+
+/**
+ * Whit Draw
+ */
+app.post("/with-draw", verifyExistsAccountCPF, (request, response) => {
+    const { description, amount } = request.body;
+    const { costumer } = request;
+
+    const balance = getBalance(costumer.statement);
+
+    if (balance < amount) {
         return response.status(400).json({
-            error: "Costumer not found!",
+            error: "Insufficient funds!",
         });
     }
 
-    return response.json(costumer.statement);
+    const statementOperation = {
+        description,
+        amount,
+        created_at: new Date(),
+        type: "debit",
+    };
+
+    costumer.statement.push(statementOperation);
+
+    return response.status(201).send();
 });
 
 app.listen(3333);
